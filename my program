@@ -1,0 +1,62 @@
+# 爬蟲所需套件安裝
+!apt update > /dev/null
+!apt install chromium-chromedriver > /dev/null
+!cp /usr/lib/chromium-browser/chromedriver /usr/bin
+!pip install selenium beautifulsoup4 > /dev/null
+
+# 爬蟲程式碼主體
+
+from selenium import webdriver # 用於自動化瀏覽器操作
+from selenium.webdriver.chrome.options import Options # 用於設置Chrome選項
+from selenium.webdriver.common.by import By # 用於定位元素
+from selenium.webdriver.support.ui import WebDriverWait # 用於顯示等待
+from selenium.webdriver.support import expected_conditions as EC # 用於預期條件
+from bs4 import BeautifulSoup # 用於解析HTML
+
+# 設置Chrome選項
+chrome_options = Options() 
+chrome_options.add_argument('--headless') # 無頭模式，隱藏瀏覽器界面 
+chrome_options.add_argument('--no-sandbox') # 禁用沙盒模式
+chrome_options.add_argument('--disable-dev-shm-usage')# 禁用共享內存使用
+
+# 初始化Chrome瀏覽器
+driver = webdriver.Chrome(options=chrome_options)
+
+# 設定要抓取的URL
+url = 'https://csie.asia.edu.tw/zh_tw/TeacherIntroduction/Full_time_faculty'
+driver.get(url)
+
+# 等待頁面加載完成，直到所有教師元素出現
+try:
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.i-member-item'))
+    )
+except Exception as e:
+    print("Error:", e) # 捕捉並打印可能出現的錯誤
+
+# 使用BeautifulSoup解析頁面源碼
+soup = BeautifulSoup(driver.page_source, 'html.parser')
+driver.quit()  # 關閉瀏覽器
+
+# 選擇所有教師的元素
+teachers = soup.select('div.i-member-item')
+data = [] # 用於儲存教師資料的列表
+
+# 循環遍歷每位教師，提取姓名和專業領域
+for teacher in teachers:
+    name_tag = teacher.select_one('.member-data-value-name a') # 找到姓名元素 
+    expertise_tag = teacher.select_one('.member-data-value-7') # 找到專業領域元素 
+    name = name_tag.text.strip() if name_tag else 'N/A' # 提取姓名和專業，若找不到則設為'N/A'
+    expertise = expertise_tag.text.strip() if expertise_tag else 'N/A'
+    data.append({'Name': name, 'Expertise': expertise})  # 將資料添加至列表
+
+# 將資料寫入到文本文件中
+with open('teacher_expertise.txt', 'w', encoding='utf-8') as f:
+    for item in data:
+        f.write(f"{item['Name']}：{item['Expertise']}\n") # 每位教師的姓名及專業領域
+
+print("資料已儲存至 'teacher_expertise.txt'")
+
+# 下載成txt檔
+from google.colab import files
+files.download('teacher_expertise.txt')
